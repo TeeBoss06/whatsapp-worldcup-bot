@@ -264,7 +264,59 @@ def get_standings():
     return "\n".join(lines).strip()
 
 
+def get_group(group_name):
+    data = wc_api.get_groups()
 
+    if data.get("error"):
+        return "Unable to load standings."
+
+    groups = data.get("groups", [])
+
+    if not groups:
+        return "No standings available."
+
+    group_name = group_name.upper()
+
+    group = next(
+        (g for g in groups if g["name"].upper() == group_name),
+        None
+    )
+
+    if not group:
+        return f"Group {group_name} does not exist."
+
+    teams_data = wc_api.get_teams()
+
+    lookup = {}
+
+    if not teams_data.get("error"):
+        for team in teams_data.get("teams", []):
+            lookup[str(team["id"])] = team["name_en"]
+
+    teams = sorted(
+        group["teams"],
+        key=lambda t: (
+            int(t["pts"]),
+            int(t["gd"]),
+            int(t["gf"])
+        ),
+        reverse=True,
+    )
+
+    lines = [f"🏆 *Group {group_name}*", ""]
+
+    for position, team in enumerate(teams, start=1):
+
+        name = lookup.get(str(team["team_id"]), "Unknown")
+
+        pts = int(team["pts"])
+        suffix = "pt" if pts == 1 else "pts"
+
+        lines.append(
+            f"{position}. {name:<28} {pts} {suffix}"
+        )
+
+    return "\n".join(lines)
 
 
 
@@ -309,8 +361,11 @@ wc standings"""
 
     elif text == "wc last":
         return [get_last()]
+    elif text.startswith("wc group "):
 
-    elif text == "wc standings":
+        group = text.replace("wc group ", "").strip()
+
+        return [get_group(group)]
         return split_message(get_standings())
 
     return [

@@ -1,7 +1,5 @@
 import worldcup
 
-replies = worldcup.handle_command("wc standings")
-
-for reply in replies:
-    print(reply)
-    print("=" * 60)
+print(worldcup.handle_command("wc group a")[0])
+print()
+print(worldcup.handle_command("wc group h")[0])
