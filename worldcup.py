@@ -123,6 +123,11 @@ def get_today():
 
     return "\n".join(lines).strip()
 
+def get_fixtures():
+    """
+    Fixtures = today's scheduled matches.
+    """
+    return get_today()
 
 def get_live():
     games = []
@@ -349,9 +354,8 @@ wc next
 wc last
 wc standings"""
         ]
-
-    elif text == "wc today":
-        return [get_today()]
+    elif text in ["wc today", "wc fixtures"]:
+        return [get_fixtures()]
 
     elif text == "wc live":
         return [get_live()]
