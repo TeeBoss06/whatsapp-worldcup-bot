@@ -2,11 +2,10 @@
 World Cup Module
 Powered by worldcup26.ir
 """
-
 from datetime import datetime
+import difflib
 
 import wc_api
-
 MAX_MESSAGE_LENGTH = 1500
 
 
@@ -32,6 +31,21 @@ def split_message(text):
         parts.append(text)
 
     return parts
+
+def team_lookup():
+    teams_data = wc_api.get_teams()
+
+    if teams_data.get("error"):
+        return {}
+
+    lookup = {}
+
+    for team in teams_data.get("teams", []):
+        lookup[str(team["id"])] = {
+            "name_en": team["name_en"]
+        }
+
+    return lookup
 
 
 def parse_match_date(date_string):
@@ -324,6 +338,80 @@ def get_group(group_name):
     return "\n".join(lines)
 
 
+def get_team(team_name):
+    data = wc_api.get_groups()
+
+    if data.get("error"):
+        return "Unable to load team information."
+
+    groups = data.get("groups", [])
+
+    if not groups:
+        return "No team information available."
+
+    lookup = team_lookup()
+
+    # Create a name -> id mapping
+    names = {}
+
+    for team_id, info in lookup.items():
+        names[info["name_en"]] = team_id
+
+    # Try exact match first
+    match = None
+
+    for name in names:
+        if name.lower() == team_name.lower():
+            match = name
+            break
+
+    # If no exact match, try closest match
+    if not match:
+        close = difflib.get_close_matches(
+            team_name,
+            names.keys(),
+            n=1,
+            cutoff=0.5,
+        )
+
+        if close:
+            match = close[0]
+
+    if not match:
+        return f"No team found for '{team_name}'."
+
+    team_id = names[match]
+
+    # Search every group
+    for group in groups:
+
+        teams = sorted(
+            group["teams"],
+            key=lambda t: (
+                int(t["pts"]),
+                int(t["gd"]),
+                int(t["gf"])
+            ),
+            reverse=True,
+        )
+
+        for position, team in enumerate(teams, start=1):
+
+            if str(team["team_id"]) == str(team_id):
+
+                pts = int(team["pts"])
+                suffix = "pt" if pts == 1 else "pts"
+
+                return (
+                    f"🏆 *{match}*\n\n"
+                    f"Group: {group['name']}\n"
+                    f"Position: {position}\n"
+                    f"Points: {pts} {suffix}"
+                )
+
+    return "Team not found."
+
+
 
 
 
@@ -341,6 +429,8 @@ wc live
 wc next
 wc last
 wc standings
+wc group <letter>
+wc team <name>
 wc help"""
         ]
 
@@ -348,11 +438,16 @@ wc help"""
         return [
             """🏆 *World Cup Commands*
 
+🏆 *World Cup Commands*
+
 wc today
+wc fixtures
 wc live
 wc next
 wc last
-wc standings"""
+wc standings
+wc group <letter>
+wc team <name>"""
         ]
     elif text in ["wc today", "wc fixtures"]:
         return [get_fixtures()]
@@ -365,12 +460,23 @@ wc standings"""
 
     elif text == "wc last":
         return [get_last()]
+    
     elif text.startswith("wc group "):
 
         group = text.replace("wc group ", "").strip()
 
         return [get_group(group)]
-        return split_message(get_standings())
+
+    elif text.startswith("wc team "):
+
+        team = text.replace("wc team ", "").strip()
+
+        return [get_team(team)]
+
+    elif text == "wc standings":
+
+        return [get_standings()]
+        
 
     return [
         "Unknown World Cup command.\n\nType *wc help*."
